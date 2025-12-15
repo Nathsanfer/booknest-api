@@ -1,14 +1,269 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
+}
+
+model User {
+  idUser      Int     @id @default(autoincrement())
+  name        String
+  email       String  @unique
+  password    String
+  image       String?
+  description String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+  followers        Followers[]        @relation("userFollowers")
+  following        Followers[]        @relation("userFollowing")
+  bookshelves      Bookshelf[]
+  quotes           Quote[]
+  reviews          Review[]
+  offensives       Offensive[]
+  annualStatistics AnnualStatistics[]
+
+  @@map("users")
+}
+
+model Followers {
+  idFollower Int @id @default(autoincrement())
+
+  userId     Int
+  user       User @relation("userFollowers", fields: [userId], references: [idUser], onDelete: Cascade)
+  followerId Int
+  follower   User @relation("userFollowing", fields: [followerId], references: [idUser], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, followerId]) // Evita seguir a mesma pessoa 
+  @@map("followers")
+}
+
+model Author {
+  idAuthor  Int     @id @default(autoincrement())
+  name      String
+  biography String?
+  image     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+  books            Book[]
+  authorStatistics AuthorStatistics[]
+
+  @@map("authors")
+}
+
+model Gender {
+  idGender Int    @id @default(autoincrement())
+  name     String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+  bookGenders      BookGender[]
+  genderStatistics GenderStatistics[]
+
+  @@map("genres")
+}
+
+model Book {
+  idBook     Int    @id @default(autoincrement())
+  title      String
+  synopsis   String
+  publisher  String
+  launchYear Int
+  pages      Int
+  isbn       String @unique
+
+  authorId Int
+  author   Author @relation(fields: [authorId], references: [idAuthor], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+  bookGenders BookGender[]
+  bookshelves Bookshelf[]
+  quotes      Quote[]
+  reviews     Review[]
+
+  @@map("books")
+}
+
+model BookGender {
+  idBookGender Int @id @default(autoincrement())
+
+  bookId   Int
+  book     Book   @relation(fields: [bookId], references: [idBook], onDelete: Cascade)
+  genderId Int
+  gender   Gender @relation(fields: [genderId], references: [idGender], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([bookId, genderId]) // Evita duplicação
+  @@map("book_genres")
+}
+
+enum BookshelfStatus {
+  READING
+  COMPLETED
+  WANT_TO_READ
+  ABANDONED
+}
+
+model Bookshelf {
+  idBookshelf Int @id @default(autoincrement())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [idUser], onDelete: Cascade)
+  bookId Int
+  book   Book @relation(fields: [bookId], references: [idBook], onDelete: Cascade)
+
+  status    BookshelfStatus // Alterado para enum
+  rating    Int?            @default(0) 
+  startDate DateTime?
+  endDate   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+  readingHistories ReadingHistory[]
+
+  @@unique([userId, bookId]) // Evita duplicação na estante
+  @@map("bookshelves")
+}
+
+model ReadingHistory {
+  idReadingHistory Int @id @default(autoincrement())
+
+  bookshelfId Int
+  bookshelf   Bookshelf @relation(fields: [bookshelfId], references: [idBookshelf], onDelete: Cascade)
+
+  pagesRead Int
+  comment   String?
+  emoji     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("reading_histories")
+}
+
+model Quote {
+  idQuote Int @id @default(autoincrement())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [idUser], onDelete: Cascade)
+  bookId Int
+  book   Book @relation(fields: [bookId], references: [idBook], onDelete: Cascade)
+
+  content String
+  page    Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("quotes")
+}
+
+model Review {
+  idReview Int @id @default(autoincrement())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [idUser], onDelete: Cascade)
+  bookId Int
+  book   Book @relation(fields: [bookId], references: [idBook], onDelete: Cascade)
+
+  content String
+  rating  Int 
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, bookId]) // Evita mais review do mesmo livro pela mesma pessoa
+  @@map("reviews")
+}
+
+model Offensive {
+  idOffensive Int @id @default(autoincrement())
+
+  userId Int  @unique 
+  user   User @relation(fields: [userId], references: [idUser], onDelete: Cascade)
+
+  consecutiveDays Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("offensives")
+}
+
+model AnnualStatistics {
+  idAnnualStatistics Int @id @default(autoincrement())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [idUser], onDelete: Cascade)
+
+  year      Int
+  booksRead Int @default(0)
+  pagesRead Int @default(0)
+  daysRead  Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+  authorStatistics AuthorStatistics[]
+  genderStatistics GenderStatistics[]
+
+  @@unique([userId, year]) // Uma estatística por usuário por ano
+  @@map("annual_statistics")
+}
+
+model AuthorStatistics {
+  idAuthorStatistics Int @id @default(autoincrement())
+
+  annualStatisticsId Int
+  annualStatistics   AnnualStatistics @relation(fields: [annualStatisticsId], references: [idAnnualStatistics], onDelete: Cascade)
+  authorId           Int
+  author             Author           @relation(fields: [authorId], references: [idAuthor], onDelete: Cascade)
+
+  booksRead Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([annualStatisticsId, authorId]) // Evita duplicação
+  @@map("author_statistics")
+}
+
+model GenderStatistics {
+  idGenderStatistics Int @id @default(autoincrement())
+
+  annualStatisticsId Int
+  annualStatistics   AnnualStatistics @relation(fields: [annualStatisticsId], references: [idAnnualStatistics], onDelete: Cascade)
+  genderId           Int
+  gender             Gender           @relation(fields: [genderId], references: [idGender], onDelete: Cascade)
+
+  booksRead Int @default(0)
+  pagesRead Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([annualStatisticsId, genderId]) // Evita duplicação
+  @@map("gender_statistics")
 }
